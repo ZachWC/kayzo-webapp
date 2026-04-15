@@ -21,7 +21,7 @@ export function LoginScreen() {
     setError(null)
     const err = await signIn(email, password)
     if (err) {
-      setError("Invalid email or password. Please try again.")
+      setError(err)
       setIsLoading(false)
     }
   }
