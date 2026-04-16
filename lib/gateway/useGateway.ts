@@ -7,7 +7,7 @@ import { GatewayConnection, type GatewayEvent } from "./connection"
 import type { ChatMessage, ApprovalItem, ApprovalCategory } from "@/lib/types"
 
 export function useGateway() {
-  const { customer, setConnectionStatus, addMessage, updateMessage, addApproval } = useAppStore()
+  const { customer, setConnectionStatus, addMessage, updateMessage, addApproval, removeThinkingMessages } = useAppStore()
   const connectionRef = useRef<GatewayConnection | null>(null)
   const streamingIdRef = useRef<string | null>(null)
 
@@ -17,9 +17,19 @@ export function useGateway() {
 
       const payload = event.payload as Record<string, unknown>
       const stream = payload?.stream as string
+      const data = payload?.data as Record<string, unknown> | undefined
+
+      if (stream === "lifecycle") {
+        const phase = data?.phase as string
+        if (phase === "start") {
+          removeThinkingMessages()
+        } else if (phase === "end") {
+          streamingIdRef.current = null
+        }
+      }
 
       if (stream === "assistant") {
-        const delta = payload?.delta as string
+        const delta = data?.delta as string
         if (!delta) return
 
         if (streamingIdRef.current) {
@@ -39,13 +49,6 @@ export function useGateway() {
             type: "text",
           }
           addMessage(msg)
-        }
-      }
-
-      if (stream === "lifecycle") {
-        const phase = payload?.phase as string
-        if (phase === "end") {
-          streamingIdRef.current = null
         }
       }
 
@@ -79,7 +82,7 @@ export function useGateway() {
         }
       }
     },
-    [addMessage, updateMessage, addApproval]
+    [addMessage, updateMessage, addApproval, removeThinkingMessages]
   )
 
   useEffect(() => {

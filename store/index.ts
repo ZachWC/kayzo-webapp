@@ -20,6 +20,7 @@ interface AppState {
   // Actions
   addMessage: (message: ChatMessage) => void
   updateMessage: (id: string, updates: Partial<ChatMessage>) => void
+  removeThinkingMessages: () => void
   addApproval: (approval: ApprovalItem) => void
   updateApproval: (id: string, updates: Partial<ApprovalItem>) => void
   setPreferences: (preferences: Preferences) => void
@@ -45,6 +46,11 @@ export const useAppStore = create<AppState>((set) => ({
   updateMessage: (id, updates) =>
     set((state) => ({
       messages: state.messages.map((m) => (m.id === id ? { ...m, ...updates } : m)),
+    })),
+
+  removeThinkingMessages: () =>
+    set((state) => ({
+      messages: state.messages.filter((m) => m.type !== "thinking"),
     })),
 
   addApproval: (approval) =>
