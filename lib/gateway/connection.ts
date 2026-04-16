@@ -98,10 +98,10 @@ export class GatewayConnection {
             minProtocol: 1,
             maxProtocol: 3,
             client: {
-              id: "webchat-ui",
+              id: "openclaw-control-ui",
               version: "1.0.0",
               platform: "web",
-              mode: "webchat",
+              mode: "ui",
             },
             role: "operator",
             scopes: ["operator.read", "operator.write"],
