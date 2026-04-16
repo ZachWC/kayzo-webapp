@@ -56,6 +56,7 @@ export class GatewayConnection {
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null
   private reconnectAttempts = 0
   private destroyed = false
+  private connectReqId: string | null = null
 
   constructor(
     private slug: string,
@@ -86,14 +87,40 @@ export class GatewayConnection {
 
     this.ws.onopen = () => {
       this.reconnectAttempts = 0
-      // Send the OpenClaw connect frame
-      this.ws?.send(JSON.stringify({ type: "connect" }))
-      this.onStatusChange("connected")
+      // Send the OpenClaw gateway connect handshake frame
+      this.connectReqId = crypto.randomUUID()
+      this.ws?.send(
+        JSON.stringify({
+          type: "req",
+          id: this.connectReqId,
+          method: "connect",
+          params: {
+            minProtocol: 1,
+            maxProtocol: 3,
+            client: {
+              id: "openclaw-control-ui",
+              version: "1.0.0",
+              platform: "web",
+              mode: "ui",
+            },
+          },
+        }),
+      )
     }
 
     this.ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data as string) as GatewayEvent
+        // The first response is the connect handshake reply
+        if (this.connectReqId && data.type === "res" && data.id === this.connectReqId) {
+          this.connectReqId = null
+          if (data.ok) {
+            this.onStatusChange("connected")
+          } else {
+            this.ws?.close()
+          }
+          return
+        }
         this.onMessage(data)
       } catch {
         // Ignore malformed frames
