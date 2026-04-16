@@ -217,7 +217,7 @@ export function ChatScreen() {
     }
     addMessage(thinkingMsg)
 
-    send("agent", { message: text, idempotencyKey: crypto.randomUUID() })
+    send("agent", { message: text, agentId: "main", idempotencyKey: crypto.randomUUID() })
 
     setInput("")
     if (textareaRef.current) textareaRef.current.style.height = "auto"
@@ -236,7 +236,7 @@ export function ChatScreen() {
     const reader = new FileReader()
     reader.onload = () => {
       const base64 = (reader.result as string).split(",")[1]
-      send("agent", { message: input.trim() || "Here is a photo.", image: base64, mimeType: file.type, idempotencyKey: crypto.randomUUID() })
+      send("agent", { message: input.trim() || "Here is a photo.", image: base64, mimeType: file.type, agentId: "main", idempotencyKey: crypto.randomUUID() })
       const userMsg: ChatMessage = {
         id: crypto.randomUUID(),
         role: "user",
