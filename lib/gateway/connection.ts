@@ -103,6 +103,8 @@ export class GatewayConnection {
               platform: "web",
               mode: "webchat",
             },
+            role: "operator",
+            scopes: ["operator.read", "operator.write"],
           },
         }),
       )
