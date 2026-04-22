@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
-import { MessageSquare, Bell, SlidersHorizontal, Clock, HardHat } from "lucide-react"
+import { MessageSquare, Bell, SlidersHorizontal, Clock, HardHat, Plug } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ConnectionBanner } from "./connection-banner"
 import { useAppStore } from "@/store"
@@ -17,6 +17,7 @@ interface DashboardShellProps {
 const NAV_ITEMS = [
   { href: "/", label: "Chat", icon: MessageSquare },
   { href: "/approvals", label: "Approvals", icon: Bell },
+  { href: "/integrations", label: "Integrations", icon: Plug },
   { href: "/preferences", label: "Preferences", icon: SlidersHorizontal },
   { href: "/activity", label: "Activity", icon: Clock },
 ]
