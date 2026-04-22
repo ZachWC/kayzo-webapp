@@ -163,12 +163,6 @@ function GmailCard({
         </div>
       )}
 
-      {!status.oauthAvailable && !status.connected && (
-        <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
-          Gmail OAuth is not configured on this server. Contact your administrator.
-        </p>
-      )}
-
       <div className="flex gap-2">
         {status.connected ? (
           <button
@@ -182,7 +176,7 @@ function GmailCard({
         ) : (
           <button
             onClick={handleConnect}
-            disabled={loading || !status.oauthAvailable}
+            disabled={loading}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
             {loading ? (
