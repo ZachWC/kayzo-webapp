@@ -130,7 +130,10 @@ function PrefHeader({
 export function PreferencesScreen() {
   const { customer, preferences, setPreferences } = useAppStore()
   const slug = customer?.slug ?? ""
-  const apiBase = process.env.NEXT_PUBLIC_GATEWAY_API_URL ?? "https://api.kayzo.ai"
+  const apiBase =
+    process.env.NEXT_PUBLIC_GATEWAY_API_URL ??
+    process.env.NEXT_PUBLIC_API_URL ??
+    "https://api.kayzo.app"
 
   const [materialOrders, setMaterialOrders] = useState<ThreeOpt>("always-ask")
   const [materialThreshold, setMaterialThreshold] = useState("500")

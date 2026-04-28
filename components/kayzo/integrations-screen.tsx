@@ -327,7 +327,10 @@ function CredentialCard({
 export function IntegrationsScreen() {
   const { customer } = useAppStore()
   const slug = customer?.slug ?? ""
-  const apiBase = process.env.NEXT_PUBLIC_GATEWAY_API_URL ?? "https://api.kayzo.ai"
+  const apiBase =
+    process.env.NEXT_PUBLIC_GATEWAY_API_URL ??
+    process.env.NEXT_PUBLIC_API_URL ??
+    "https://api.kayzo.app"
 
   const [data, setData] = useState<IntegrationsData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -345,6 +348,10 @@ export function IntegrationsScreen() {
       })
     })
   }, [])
+
+  useEffect(() => {
+    // no-op: reserved for future integration diagnostics
+  }, [slug, apiBase])
 
   const fetchIntegrations = useCallback(async () => {
     if (!slug || !authToken) return

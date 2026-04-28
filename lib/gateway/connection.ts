@@ -162,7 +162,10 @@ export class GatewayConnection {
       // Convert http(s) gateway URL to ws(s)
       return this.gatewayUrl.replace(/^https?/, (p) => (p === "https" ? "wss" : "ws")) + "/ws"
     }
-    const base = process.env.NEXT_PUBLIC_GATEWAY_WS_URL ?? "wss://api.kayzo.ai"
+    const base =
+      process.env.NEXT_PUBLIC_GATEWAY_WS_URL ??
+      process.env.NEXT_PUBLIC_GATEWAY_URL ??
+      "wss://api.kayzo.app"
     return `${base}/ws/${this.slug}`
   }
 

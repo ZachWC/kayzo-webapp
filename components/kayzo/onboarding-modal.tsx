@@ -108,7 +108,10 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
   const [selections, setSelections] = useState<Record<string, string>>({})
   const [isSaving, setIsSaving] = useState(false)
   const { customer } = useAppStore()
-  const apiBase = process.env.NEXT_PUBLIC_GATEWAY_API_URL ?? "https://api.kayzo.ai"
+  const apiBase =
+    process.env.NEXT_PUBLIC_GATEWAY_API_URL ??
+    process.env.NEXT_PUBLIC_API_URL ??
+    "https://api.kayzo.app"
 
   const isLastStep = step === STEPS.length
   const currentStep = STEPS[step]

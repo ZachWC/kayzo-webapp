@@ -40,7 +40,10 @@ const CATEGORY_OPTIONS: CategoryFilter[] = ["All", "ordering", "scheduling", "em
 
 export function ActivityScreen() {
   const { customer } = useAppStore()
-  const apiBase = process.env.NEXT_PUBLIC_GATEWAY_API_URL ?? "https://api.kayzo.ai"
+  const apiBase =
+    process.env.NEXT_PUBLIC_GATEWAY_API_URL ??
+    process.env.NEXT_PUBLIC_API_URL ??
+    "https://api.kayzo.app"
   const slug = customer?.slug ?? ""
 
   const [items, setItems] = useState<ActivityItem[]>([])
