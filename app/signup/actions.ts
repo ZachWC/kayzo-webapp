@@ -19,4 +19,5 @@ export async function signUp(
   if (error) return error.message
 
   redirect("/signup/check-email")
+  return null
 }
