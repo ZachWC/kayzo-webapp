@@ -13,19 +13,15 @@ export async function cancelAccount(): Promise<string | null> {
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    redirect("/login")
-    return null
-  }
+  if (!user) redirect("/login")
 
   const { error } = await supabase
     .from("customers")
     .update({ subscription_status: "cancelled" })
-    .eq("auth_user_id", user.id)
+    .eq("auth_user_id", user!.id)
 
   if (error) return error.message
 
   await supabase.auth.signOut()
   redirect("/login")
-  return null
 }

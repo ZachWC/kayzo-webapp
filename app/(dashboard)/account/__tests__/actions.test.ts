@@ -1,7 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
+class RedirectError extends Error {
+  constructor(public url: string) {
+    super(`NEXT_REDIRECT: ${url}`)
+  }
+}
+
 vi.mock("next/navigation", () => ({
-  redirect: vi.fn(),
+  redirect: vi.fn((url: string) => {
+    throw new RedirectError(url)
+  }),
 }))
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -36,7 +44,7 @@ describe("logout", () => {
     const { client, mocks } = makeClient()
     vi.mocked(createClient).mockResolvedValue(client as never)
 
-    await logout()
+    await expect(logout()).rejects.toThrow("NEXT_REDIRECT")
 
     expect(mocks.signOut).toHaveBeenCalledOnce()
   })
@@ -45,7 +53,7 @@ describe("logout", () => {
     const { client } = makeClient()
     vi.mocked(createClient).mockResolvedValue(client as never)
 
-    await logout()
+    await expect(logout()).rejects.toThrow("NEXT_REDIRECT")
 
     expect(redirect).toHaveBeenCalledWith("/login")
   })
@@ -57,7 +65,7 @@ describe("cancelAccount", () => {
       const { client, mocks } = makeClient()
       vi.mocked(createClient).mockResolvedValue(client as never)
 
-      await cancelAccount()
+      await expect(cancelAccount()).rejects.toThrow("NEXT_REDIRECT")
 
       expect(mocks.from).toHaveBeenCalledWith("customers")
       expect(mocks.update).toHaveBeenCalledWith({ subscription_status: "cancelled" })
@@ -68,7 +76,7 @@ describe("cancelAccount", () => {
       const { client, mocks } = makeClient()
       vi.mocked(createClient).mockResolvedValue(client as never)
 
-      await cancelAccount()
+      await expect(cancelAccount()).rejects.toThrow("NEXT_REDIRECT")
 
       expect(mocks.signOut).toHaveBeenCalledOnce()
     })
@@ -77,18 +85,9 @@ describe("cancelAccount", () => {
       const { client } = makeClient()
       vi.mocked(createClient).mockResolvedValue(client as never)
 
-      await cancelAccount()
+      await expect(cancelAccount()).rejects.toThrow("NEXT_REDIRECT")
 
       expect(redirect).toHaveBeenCalledWith("/login")
-    })
-
-    it("does not return an error on success", async () => {
-      const { client } = makeClient()
-      vi.mocked(createClient).mockResolvedValue(client as never)
-
-      const result = await cancelAccount()
-
-      expect(result).toBeNull()
     })
   })
 
@@ -126,7 +125,7 @@ describe("cancelAccount", () => {
       const { client } = makeClient({ user: null })
       vi.mocked(createClient).mockResolvedValue(client as never)
 
-      await cancelAccount()
+      await expect(cancelAccount()).rejects.toThrow("NEXT_REDIRECT")
 
       expect(redirect).toHaveBeenCalledWith("/login")
     })
