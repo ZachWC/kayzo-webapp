@@ -28,10 +28,13 @@ export function SignupScreen() {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
-    const formData = new FormData(e.currentTarget)
-    const err = await signUpWithProfile(formData)
-    if (err) {
-      setError(err)
+    try {
+      const formData = new FormData(e.currentTarget)
+      const err = await signUpWithProfile(formData)
+      if (err) setError(err)
+    } catch {
+      setError("Something went wrong. Please try again.")
+    } finally {
       setIsLoading(false)
     }
   }
