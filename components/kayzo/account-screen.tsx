@@ -28,7 +28,8 @@ export function AccountScreen() {
     startCancel(async () => {
       const error = await cancelAccount()
       if (error) {
-        setCancelError(error)
+        console.error("cancelAccount error:", error)
+        setCancelError("We couldn't cancel your account right now. Please try again.")
         setConfirmCancel(false)
       }
     })
