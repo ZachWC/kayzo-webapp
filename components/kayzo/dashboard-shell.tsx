@@ -3,10 +3,11 @@
 import { useEffect } from "react"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
-import { MessageSquare, Bell, SlidersHorizontal, Clock, HardHat, Plug, User } from "lucide-react"
+import { MessageSquare, Bell, Clock, HardHat, Plug, User } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ConnectionBanner } from "./connection-banner"
 import { useAppStore } from "@/store"
+import { createClient } from "@/lib/supabase/client"
 
 interface DashboardShellProps {
   children: React.ReactNode
@@ -18,7 +19,6 @@ const NAV_ITEMS = [
   { href: "/", label: "Chat", icon: MessageSquare },
   { href: "/approvals", label: "Approvals", icon: Bell },
   { href: "/integrations", label: "Integrations", icon: Plug },
-  { href: "/preferences", label: "Preferences", icon: SlidersHorizontal },
   { href: "/activity", label: "Activity", icon: Clock },
   { href: "/account", label: "Account", icon: User },
 ]
@@ -30,6 +30,39 @@ export function DashboardShell({ children, contractorName, customerSlug }: Dashb
   useEffect(() => {
     setCustomer({ id: "", email: "", name: contractorName, slug: customerSlug, subscriptionStatus: "active", subscriptionTier: "cloud", freeAccount: false, gatewayType: "cloud", gatewayUrl: null })
   }, [customerSlug, contractorName, setCustomer])
+
+  // Policy: run review-first (always ask) by default.
+  // This removes preference intake UI while still ensuring the gateway never auto-sends.
+  useEffect(() => {
+    if (!customerSlug) return
+    const apiBase =
+      process.env.NEXT_PUBLIC_GATEWAY_API_URL ??
+      process.env.NEXT_PUBLIC_API_URL ??
+      "https://api.kayzo.app"
+
+    const supabase = createClient()
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        const token = data.session?.access_token
+        if (!token) return
+        return fetch(`${apiBase}/api/preferences/${customerSlug}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            ordering: { mode: "always_ask", threshold: null },
+            scheduling: { mode: "always_ask" },
+            emailReplies: { mode: "always_ask" },
+            bidMarkup: 20,
+          }),
+        }).catch(() => {})
+      })
+      .catch(() => {})
+  }, [customerSlug])
+
   const pendingCount = approvals.filter((a) => a.status === "pending").length
 
   const initials = contractorName

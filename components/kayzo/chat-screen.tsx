@@ -7,7 +7,6 @@ import { useGateway } from "@/lib/gateway/useGateway"
 import { useAppStore } from "@/store"
 import { ApprovalCard } from "./approval-card"
 import { BidCard } from "./bid-card"
-import { OnboardingModal } from "./onboarding-modal"
 import type { ChatMessage, BidLineItem } from "@/lib/types"
 
 // BidCard still uses its own BidLineItem shape — adapt at render time
@@ -173,16 +172,8 @@ export function ChatScreen() {
   const { messages, addMessage, connectionStatus } = useAppStore()
   const { send } = useGateway()
   const [input, setInput] = useState("")
-  const [showOnboarding, setShowOnboarding] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-
-  // Check if first login
-  useEffect(() => {
-    if (typeof window !== "undefined" && !localStorage.getItem("kayzo_onboarding_complete")) {
-      setShowOnboarding(true)
-    }
-  }, [])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -254,15 +245,6 @@ export function ChatScreen() {
 
   return (
     <>
-      {showOnboarding && (
-        <OnboardingModal
-          onComplete={() => {
-            localStorage.setItem("kayzo_onboarding_complete", "true")
-            setShowOnboarding(false)
-          }}
-        />
-      )}
-
       <div className="flex flex-col h-full">
         {/* Message list */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
