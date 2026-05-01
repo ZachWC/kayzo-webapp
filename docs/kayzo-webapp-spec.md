@@ -2,21 +2,23 @@
 
 ## What we are building
 
-A purpose-built React web app at app.kayzo.ai that is the primary interface for contractors using Kayzo. It replaces the built-in OpenClaw WebChat entirely. Contractors log in, chat with Kayzo, manage their approval queue, set preferences, and generate bids -- all from one clean interface designed for someone on a job site.
+A purpose-built React web app at **app.kayzo.app** that is the primary interface for contractors using Kayzo. It replaces the built-in OpenClaw WebChat entirely. Contractors log in, chat with Kayzo, manage their approval queue, connect integrations, review activity, and work bids/invoices — all from one clean interface designed for someone on a job site.
 
-This is a separate project from the Kayzo backend. It is deployed on Vercel and communicates with the backend via the gateway router at api.kayzo.ai.
+**Product policy:** Kayzo is **review-first** end-to-end. There is **no Preferences screen** and no in-app autonomy sliders; contractor-facing control is **approve / decline** (and chat), not “auto-act” settings.
+
+This is a separate project from the Kayzo backend. It is deployed on Vercel and communicates with the backend via the gateway router at **api.kayzo.app**.
 
 ---
 
 ## Tech stack
 
-- Framework: Next.js 14 (App Router)
+- Framework: Next.js (App Router; repo tracks current major, e.g. 16.x)
 - Styling: Tailwind CSS
 - Auth: Supabase Auth (email + password)
-- Real-time: WebSocket connection to customer's gateway via api.kayzo.ai/ws/{slug}
+- Real-time: WebSocket connection to customer's gateway via api.kayzo.app/ws/{slug}
 - State: Zustand for client state
 - Deployment: Vercel (free tier handles MVP traffic easily)
-- Domain: app.kayzo.ai (CNAME to Vercel)
+- Domain: app.kayzo.app (CNAME to Vercel)
 
 ---
 
@@ -25,16 +27,16 @@ This is a separate project from the Kayzo backend. It is deployed on Vercel and 
 1. Contractor logs in via Supabase Auth (email + password)
 2. Web app fetches their customer record from Supabase including gateway_type and gateway_url
 3. Web app determines the WebSocket URL:
-   - If gateway_type = 'cloud': connect to wss://api.kayzo.ai/ws/{slug}
+   - If gateway_type = 'cloud': connect to wss://api.kayzo.app/ws/{slug}
    - If gateway_type = 'local' and gateway_url is set: connect to {gateway_url}/ws with Supabase JWT
    - If gateway_type = 'local' and gateway_url is null: show a setup pending screen
 4. The gateway router (cloud) or the local gateway directly validates the JWT and handles the connection
 5. All chat messages, tool events, and lifecycle events flow through this WebSocket
-6. Preferences are read and written via REST to https://api.kayzo.ai/api/preferences/{slug} (cloud) or directly to the local gateway (local)
+6. **Contractor preferences (server-side):** the app does **not** expose a settings UI. On dashboard load (cloud), the client sends a **PATCH** to `https://api.kayzo.app/api/preferences/{slug}` so `contractor_preferences` stays review-first (`ordering_mode`, `scheduling_mode`, and `email_replies_mode` = `always_ask`; `flagging_mode` = `always_act`; default `bid_markup`). Local customers would use the same router shape if routed through the cloud API, or rely on gateway defaults — product choice per deployment.
 
 ---
 
-## The four screens
+## Main screens (MVP)
 
 ### Screen 1 -- Chat (primary screen, default on load)
 
@@ -50,14 +52,13 @@ Message types to render:
 - Kayzo text messages: left-aligned, Kayzo avatar, markdown rendered (bold, lists, tables for bids)
 - Kayzo approval requests: left-aligned, rendered as a card (see approval card below)
 - Kayzo thinking indicator: animated dots while the gateway is processing
-- System messages: centered, gray, small text (e.g. "Gmail connected" or "Preferences updated")
+- System messages: centered, gray, small text (e.g. "Gmail connected")
 
 Approval card (rendered inline in chat):
 - Title: what the action is (e.g. "Purchase order -- Pacific Coast Lumber")
 - Details: line items, total, or commitment details
 - Category badge: small pill showing ordering / scheduling / email / flagging
 - Two buttons: Approve (green) and Decline (red)
-- Small link below: "Change how I handle these" -> opens preferences drawer to that category
 - After approval or decline: card updates to show the outcome, buttons disappear
 
 Bid output rendering:
@@ -93,48 +94,16 @@ Batch actions:
 - Select multiple items and approve or decline all at once
 - Useful when the contractor has been offline and has a backlog
 
-### Screen 3 -- Preferences
+### Integrations
 
-Where contractors control how agentic Kayzo is. Accessible from the settings icon or from the "Change how I handle these" link on approval cards.
+- Gmail OAuth (via router), Lowe's / Home Depot credential fields as implemented.
+- Not a “fourth screen” in the old spec sense; first-class nav item.
 
-Layout:
-- Header: "Preferences"
-- Four sections, one per category
-- Each section has a title, a short plain-language description, and the controls
+### Account
 
-Ordering section:
-- Title: "Material orders and purchase orders"
-- Description: "When Kayzo wants to order materials or send a PO, should it always ask first?"
-- Toggle row: Always ask / Auto-approve under $ / Always act
-- If "Auto-approve under $" is selected, show a dollar input field
-- Current threshold shown: "$500 -- orders under this amount will go through automatically"
+- Contractor-facing account/slug context as implemented.
 
-Scheduling section:
-- Title: "Scheduling commitments"
-- Description: "When Kayzo wants to confirm or change a commitment with a sub, should it always ask first?"
-- Toggle row: Always ask / Always act
-
-Email replies section:
-- Title: "Supplier and sub email replies"
-- Description: "When Kayzo wants to reply to a routine email on your behalf, should it always ask first?"
-- Toggle row: Always ask / Always act
-
-Flagging section:
-- Title: "Urgent alerts"
-- Description: "Kayzo will always notify you immediately about safety issues, missed deliveries, and overdue invoices. This cannot be turned off."
-- Static text, no controls -- just reassurance
-
-Bid markup section:
-- Title: "Default bid markup"
-- Description: "What percentage markup do you apply to material and labor costs when generating bids?"
-- Number input: shows current percentage, updates on blur
-
-Save behavior:
-- Changes save automatically on blur or toggle change
-- Show a small "Saved" confirmation toast
-- POST to https://api.kayzo.ai/api/preferences/{slug} on every change
-
-### Screen 4 -- Activity log
+### Activity log
 
 A read-only history of everything Kayzo has done. Accessible from a history icon in the nav.
 
@@ -183,26 +152,9 @@ Supabase Auth handles JWT refresh automatically. The WebSocket reconnects automa
 
 ---
 
-## Onboarding flow (first login only)
+## Onboarding / first-login preferences modal
 
-After first login, before showing the main chat screen, show the preferences onboarding sequence as a modal overlay -- four screens, one per category, with a progress indicator. The same questions Kayzo asks in chat, but in a cleaner structured UI.
-
-Screen 1: "When Kayzo wants to place a material order, should it always ask you first?"
-  - Two options: "Always ask" (selected by default) / "Auto-approve small orders"
-  - If auto-approve: show dollar input
-
-Screen 2: "Scheduling commitments with your subs?"
-  - Two options: "Always ask" / "Kayzo handles it"
-
-Screen 3: "Routine email replies on your behalf?"
-  - Two options: "Always ask" / "Kayzo handles it"
-
-Screen 4: Summary screen
-  - Shows their choices in plain language
-  - "These are your settings. You can change them anytime from Preferences."
-  - "Get started" button
-
-On completion, POST preferences to api.kayzo.ai/api/preferences/{slug} and mark onboarding complete in localStorage.
+**Not in scope for the current product.** Autonomy is fixed **review-first** in `contractor_preferences` via the dashboard **PATCH** (see “How it connects” above). A multi-step preferences onboarding modal is intentionally omitted.
 
 ---
 
@@ -264,11 +216,11 @@ Vercel deployment:
 - Set environment variables in Vercel dashboard:
   NEXT_PUBLIC_SUPABASE_URL=
   NEXT_PUBLIC_SUPABASE_ANON_KEY=
-  NEXT_PUBLIC_GATEWAY_URL=wss://api.kayzo.ai
-  NEXT_PUBLIC_API_URL=https://api.kayzo.ai
+  NEXT_PUBLIC_GATEWAY_URL=wss://api.kayzo.app
+  NEXT_PUBLIC_API_URL=https://api.kayzo.app
 
 DNS:
-- CNAME: app.kayzo.ai -> cname.vercel-dns.com
+- CNAME: app.kayzo.app -> Vercel target from dashboard
 
 ---
 
@@ -279,12 +231,11 @@ DNS:
 3. Build WebSocket connection layer -- connect to gateway, parse events, handle reconnection
 4. Build chat screen -- message rendering, streaming text, input bar, attachment support
 5. Build approval cards -- inline in chat and standalone queue screen
-6. Build preferences screen -- all four categories with auto-save
-7. Build onboarding modal -- four screens, preferences POST on completion
-8. Build bid rendering -- line-item table, inline editing, totals, copy and PDF
-9. Build activity log screen
-10. Mobile polish -- viewport, keyboard, touch targets
-11. Deploy to Vercel -- connect domain, set env vars, test end to end
+6. ~~Build preferences screen / onboarding modal~~ — **removed:** review-first policy; PATCH defaults only
+7. Build bid / invoice rendering -- line-item table, inline editing, totals, copy, PDF, email send
+8. Build integrations + activity + account surfaces
+9. Mobile polish -- viewport, keyboard, touch targets
+10. Deploy to Vercel -- connect domain, set env vars, test end to end
 
 ---
 
@@ -294,7 +245,7 @@ DNS:
 - Local customer setup UI (handled manually via provisioning scripts for now)
 - Push notifications (browser notifications are acceptable)
 - Multi-user / team views
-- Self-serve signup and payment flow
+- Self-serve signup and payment flow (optional routes may exist for ops; not part of contractor MVP narrative)
 - Dark mode
 - Bid history and search
 - Customer-facing bid portal (contractor sends bids manually)
