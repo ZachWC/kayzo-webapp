@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { Check, X, Package, Calendar, Mail, Flag } from "lucide-react"
-import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useGateway } from "@/lib/gateway/useGateway"
@@ -139,12 +138,6 @@ export function ApprovalCard({
               Decline
             </Button>
           </div>
-          <Link
-            href={`/preferences?category=${category}`}
-            className="text-xs text-muted-foreground hover:text-primary transition-colors text-center py-0.5 block"
-          >
-            Change how I handle these
-          </Link>
         </div>
       ) : (
         <div className="flex items-center gap-2">

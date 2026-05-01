@@ -191,11 +191,7 @@ function GmailCard({
 
       {status.connected && (
         <p className="text-xs text-muted-foreground">
-          Kayzo can now draft and send emails from this account. Control sending behavior in{" "}
-          <a href="/preferences" className="underline underline-offset-2 hover:text-foreground transition-colors">
-            Preferences
-          </a>
-          .
+          Kayzo can now draft emails and request approval before sending.
         </p>
       )}
     </IntegCard>

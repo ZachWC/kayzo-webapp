@@ -7,8 +7,9 @@ import { useGateway } from "@/lib/gateway/useGateway"
 import { useAppStore } from "@/store"
 import { ApprovalCard } from "./approval-card"
 import { BidCard } from "./bid-card"
-import { OnboardingModal } from "./onboarding-modal"
-import type { ChatMessage, BidLineItem } from "@/lib/types"
+import { InvoiceCard } from "./invoice-card"
+import { PricingCard } from "./pricing-card"
+import type { ChatMessage, BidLineItem, PricingChatPayload } from "@/lib/types"
 
 // BidCard still uses its own BidLineItem shape — adapt at render time
 type LocalBidLineItem = {
@@ -62,7 +63,8 @@ function parseMarkdown(text: string): React.ReactNode {
 }
 
 function MessageBubble({ msg }: { msg: ChatMessage }) {
-  const { approvals } = useAppStore()
+  const { approvals, customer } = useAppStore()
+  const customerSlug = customer?.slug ?? ""
 
   if (msg.type === "thinking") {
     return (
@@ -126,7 +128,57 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
               date={bid.date}
               lineItems={adaptLineItems(bid.lineItems)}
               markup={bid.markup}
+              customerSlug={customerSlug}
             />
+            <p className="text-[10px] text-muted-foreground mt-1 ml-1">
+              {msg.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </p>
+          </div>
+        </div>
+      )
+    } catch {
+      return null
+    }
+  }
+
+  if (msg.type === "invoice") {
+    try {
+      const inv = JSON.parse(msg.content) as {
+        jobName: string
+        date: string
+        lineItems: BidLineItem[]
+      }
+      const lineItems = inv.lineItems.map((i) => ({
+        id: i.id,
+        description: i.description,
+        qty: i.quantity,
+        unit: i.unit,
+        unitPrice: i.unitPrice,
+      }))
+      return (
+        <div className="flex items-start gap-2">
+          <KayzoAvatar />
+          <div className="flex-1 min-w-0">
+            <InvoiceCard jobName={inv.jobName} date={inv.date} lineItems={lineItems} customerSlug={customerSlug} />
+            <p className="text-[10px] text-muted-foreground mt-1 ml-1">
+              {msg.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </p>
+          </div>
+        </div>
+      )
+    } catch {
+      return null
+    }
+  }
+
+  if (msg.type === "pricing") {
+    try {
+      const data = JSON.parse(msg.content) as PricingChatPayload
+      return (
+        <div className="flex items-start gap-2">
+          <KayzoAvatar />
+          <div className="flex-1 min-w-0">
+            <PricingCard data={data} />
             <p className="text-[10px] text-muted-foreground mt-1 ml-1">
               {msg.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </p>
@@ -173,16 +225,8 @@ export function ChatScreen() {
   const { messages, addMessage, connectionStatus } = useAppStore()
   const { send } = useGateway()
   const [input, setInput] = useState("")
-  const [showOnboarding, setShowOnboarding] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-
-  // Check if first login
-  useEffect(() => {
-    if (typeof window !== "undefined" && !localStorage.getItem("kayzo_onboarding_complete")) {
-      setShowOnboarding(true)
-    }
-  }, [])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -254,15 +298,6 @@ export function ChatScreen() {
 
   return (
     <>
-      {showOnboarding && (
-        <OnboardingModal
-          onComplete={() => {
-            localStorage.setItem("kayzo_onboarding_complete", "true")
-            setShowOnboarding(false)
-          }}
-        />
-      )}
-
       <div className="flex flex-col h-full">
         {/* Message list */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">

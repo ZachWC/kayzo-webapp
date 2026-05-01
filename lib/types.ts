@@ -19,7 +19,20 @@ export interface Preferences {
 }
 
 export type MessageRole = "user" | "assistant" | "system"
-export type MessageType = "text" | "approval" | "bid" | "thinking"
+export type MessageType = "text" | "approval" | "bid" | "invoice" | "pricing" | "thinking"
+
+/** Serialized into ChatMessage.content for type "pricing" */
+export type PricingChatPayload = {
+  store: "lowes" | "homedepot"
+  query: string
+  items: Array<{
+    name: string
+    price: number
+    unit: string
+    sku: string
+    inStock: boolean
+  }>
+}
 
 export interface ChatMessage {
   id: string
