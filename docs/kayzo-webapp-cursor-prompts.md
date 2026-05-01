@@ -1,8 +1,10 @@
 # Kayzo Web App -- Individual Cursor Prompts
 
-Separate project from the backend. This is a Next.js app deployed on Vercel at app.kayzo.ai.
+Separate project from the backend. Deployed on Vercel at **app.kayzo.app**. **Product source of truth:** [`kayzo-webapp-spec.md`](./kayzo-webapp-spec.md) — **review-first**; there is **no** contractor-facing Preferences screen or autonomy sliders.
 
-Before starting: the backend must be running and the gateway router at api.kayzo.ai must be working. These prompts assume Prompt 6 (gateway router) from the backend prompts is complete and tested.
+These prompts are **historical build guides**. Repo paths may differ (e.g. `app/`, `components/kayzo/`, `lib/` at project root — not always `src/…`); adapt when following steps.
+
+Before starting: the backend must be running and the gateway router at **api.kayzo.app** must be working. These prompts assume Prompt 6 (gateway router) from the backend prompts is complete and tested.
 
 ---
 
@@ -21,27 +23,25 @@ Create a new Next.js 14 project with App Router, Tailwind CSS, and Supabase.
    - Create src/lib/supabase/server.ts -- server client using createServerClient for Server Components
    - Create src/middleware.ts -- Supabase Auth session refresh middleware (follow Supabase Next.js docs exactly)
 
-4. Set up environment variables in .env.local:
+4. Set up environment variables in .env.local (names align with production Kayzo):
    NEXT_PUBLIC_SUPABASE_URL=
    NEXT_PUBLIC_SUPABASE_ANON_KEY=
-   NEXT_PUBLIC_GATEWAY_WS_URL=wss://api.kayzo.ai
-   NEXT_PUBLIC_GATEWAY_API_URL=https://api.kayzo.ai
+   NEXT_PUBLIC_GATEWAY_URL=wss://api.kayzo.app
+   NEXT_PUBLIC_API_URL=https://api.kayzo.app
 
-5. Create src/lib/types.ts with TypeScript interfaces for:
+5. Create lib/types.ts (or src/lib/types.ts) with TypeScript interfaces for:
    - Customer: { id, email, name, slug, subscriptionStatus, subscriptionTier, freeAccount, gatewayType: 'cloud' | 'local', gatewayUrl: string | null }
-   - Preferences: { ordering: { mode, threshold }, scheduling: { mode }, emailReplies: { mode }, flagging: { mode }, bidMarkup: number }
-   - ChatMessage: { id, role: 'user' | 'assistant' | 'system', content, timestamp, type: 'text' | 'approval' | 'bid' | 'thinking' }
+   - ChatMessage: include `type` for `'text' | 'approval' | 'bid' | 'invoice' | 'pricing' | 'thinking'` as implemented
    - ApprovalItem: { id, title, details, category: 'ordering' | 'scheduling' | 'email_replies' | 'flagging', amount?: number, status: 'pending' | 'approved' | 'declined' }
-   - BidLineItem: { description, quantity, unit, unitPrice, total }
-   - Bid: { jobName, date, lineItems: BidLineItem[], subtotal, markupPercent, markupAmount, grandTotal }
+   - BidLineItem, Bid, Pricing payloads as needed for cards
 
-6. Set up Zustand store at src/store/index.ts with:
+6. Set up Zustand store at store/index.ts with:
    - messages: ChatMessage[]
    - approvals: ApprovalItem[]
-   - preferences: Preferences | null
    - connectionStatus: 'connecting' | 'connected' | 'reconnecting' | 'failed' | 'setup_pending'
    - customer: Customer | null
-   - Actions: addMessage, updateApproval, setPreferences, setConnectionStatus, setCustomer
+   - Actions: addMessage, updateApproval, setConnectionStatus, setCustomer  
+   (No `preferences` slice — autonomy is **not** edited in-app; see PROMPT 7 superseded note.)
 
 7. Run npm run dev and confirm the dev server starts with no errors.
 
@@ -119,7 +119,7 @@ constructor(slug: string, jwt: string, onMessage: (event: GatewayEvent) => void,
 
 connect():
 1. Determine the WebSocket URL based on customer.gatewayType:
-   - If 'cloud': use ${NEXT_PUBLIC_GATEWAY_WS_URL}/ws/${slug}
+   - If 'cloud': use `${NEXT_PUBLIC_GATEWAY_URL}/ws/${slug}` (env is full `wss://…` base; append `/ws/{slug}`)
    - If 'local' and gatewayUrl is set: use ${customer.gatewayUrl}/ws (the local gateway's WebSocket endpoint)
    - If 'local' and gatewayUrl is null: do not connect, set connectionStatus to 'setup_pending', return early
 2. Include JWT as query param: ?token=${jwt} or as a header if the router supports it
@@ -238,7 +238,6 @@ Layout:
   - Details section: the full context -- line items if ordering, schedule details if scheduling
   - Amount row if applicable: "Total: $1,240.00" in bold
   - Pending state: Approve button (green) and Decline button (red/outline), full width
-  - "Change how I handle these" link below buttons -- opens preferences drawer to that category
   - Approved state: green checkmark + "Approved by you" + timestamp, buttons replaced
   - Declined state: gray x + "Declined" + timestamp, buttons replaced
 
@@ -307,103 +306,21 @@ Create src/components/bids/ComposeBidEmail.tsx -- modal that opens when "Send vi
 
 ---
 
-## PROMPT 7 -- Preferences screen
+## PROMPT 7 -- Preferences screen (**superseded**)
 
-Build the preferences screen where contractors control Kayzo's autonomy.
+**Do not implement** a `/preferences` page, preferences drawer, or contractor autonomy UI.
 
-Create src/app/(dashboard)/preferences/page.tsx.
+The live app is **review-first**: `contractor_preferences` are enforced server-side. The dashboard shell issues a **PATCH** to `https://api.kayzo.app/api/preferences/{slug}` on load (authenticated) with flat fields such as `ordering_mode`, `scheduling_mode`, `email_replies_mode` = `always_ask`, `flagging_mode` = `always_act`, and a default `bid_markup` — see `components/kayzo/dashboard-shell.tsx` and the router’s preferences handler in the backend repo.
 
-On mount: fetch current preferences from https://api.kayzo.ai/api/preferences/{slug} and populate the form.
-
-Layout: single scrollable page with four sections.
-
-ORDERING SECTION:
-  Title: "Material orders and purchase orders"
-  Description: "When Kayzo wants to place an order or send a PO, how much should it do on its own?"
-
-  Three-option selector (styled as a segmented control or radio cards):
-  - "Always ask me first" (always_ask)
-  - "Auto-approve small orders" (threshold) -- shows dollar input when selected
-  - "Handle everything automatically" (always_act)
-
-  If threshold selected:
-  - Dollar input: "Auto-approve orders under: $[___]"
-  - Current setting shown: "Orders under $500 go through automatically"
-
-SCHEDULING SECTION:
-  Title: "Scheduling commitments"
-  Description: "When Kayzo wants to confirm or change a scheduling commitment with a sub"
-  Two-option selector: "Always ask me first" / "Handle automatically"
-
-EMAIL REPLIES SECTION:
-  Title: "Email replies"
-  Description: "When Kayzo wants to reply to a routine supplier or sub email on your behalf"
-  Two-option selector: "Always ask me first" / "Handle automatically"
-
-FLAGGING SECTION:
-  Title: "Urgent alerts"
-  Description: "Kayzo always notifies you immediately about safety issues, missed deliveries, and overdue invoices. This keeps you informed no matter what."
-  Static info card, no controls -- reassuring, not a setting
-
-BID MARKUP SECTION:
-  Title: "Default bid markup"
-  Description: "Percentage added to material and labor costs when generating bids for customers"
-  Number input with % suffix
-  Range: 0-100
-
-SAVE BEHAVIOR:
-  - Save button at the bottom -- or auto-save on change with a "Saved" toast
-  - On save: PATCH to https://api.kayzo.ai/api/preferences/{slug}
-  - Show validation errors inline if mode values are invalid
-
-PREFERENCES DRAWER (from approval cards):
-  - When contractor taps "Change how I handle these" on an approval card, open a slide-in drawer
-  - The drawer shows only the section relevant to that approval's category
-  - Same controls as the full preferences page
-  - Changes save immediately
+If you need to **inspect** prefs for debugging, use **GET** the same route or Supabase — not a shipped settings screen.
 
 ---
 
-## PROMPT 8 -- Onboarding modal
+## PROMPT 8 -- Onboarding modal (**superseded**)
 
-Build the first-login preferences setup flow.
+**Do not implement** a first-login multi-step preferences onboarding modal.
 
-Create src/components/onboarding/OnboardingModal.tsx.
-
-Show this modal on first login if localStorage does not have a 'kayzo_onboarding_complete' key.
-
-The modal is a full-screen overlay with a card in the center. Four screens with a step indicator (1 of 4, 2 of 4, etc.) and a progress bar.
-
-Screen 1 -- Ordering:
-  Heading: "When Kayzo wants to place a material order..."
-  Sub: "Should it always check with you first, or automatically handle small orders?"
-  Two large radio cards:
-  - "Always ask me first" -- selected by default
-  - "Auto-approve orders under: $[___]" -- shows dollar input when selected
-  Next button
-
-Screen 2 -- Scheduling:
-  Heading: "Scheduling commitments with your subs"
-  Sub: "When Kayzo wants to confirm or change a date with a subcontractor"
-  Two radio cards: "Always ask first" / "Kayzo handles it"
-  Back button + Next button
-
-Screen 3 -- Email replies:
-  Heading: "Routine email replies"
-  Sub: "When Kayzo wants to reply to a supplier or sub on your behalf"
-  Two radio cards: "Always ask first" / "Kayzo handles it"
-  Back button + Next button
-
-Screen 4 -- Summary and confirmation:
-  Heading: "Your settings"
-  Summary of choices in plain language
-  Small note: "You can change these anytime from the Preferences screen"
-  "Get started" button
-
-On "Get started":
-  - PATCH preferences to api.kayzo.ai/api/preferences/{slug} with their choices
-  - Set localStorage key 'kayzo_onboarding_complete' = true
-  - Close modal, show the chat screen
+Onboarding copy that pointed contractors to “Preferences” is obsolete. First-run experience is: login → chat (after setup-pending if applicable).
 
 ---
 
@@ -433,30 +350,31 @@ Empty state: "No activity yet. Kayzo will log everything it does here."
 
 ## PROMPT 10 -- Navigation and layout
 
-Wire all four screens together with navigation.
+Wire main dashboard routes together with navigation (see `components/kayzo/dashboard-shell.tsx` in repo).
 
-Create src/app/(dashboard)/layout.tsx -- the authenticated app layout:
+Create `app/(dashboard)/layout.tsx` (or equivalent) -- the authenticated app layout:
 
 Desktop layout (md and above):
-  - Left sidebar (240px fixed): Kayzo logo at top, nav links, user info at bottom
+  - Left sidebar (~256px): Kayzo logo at top, nav links, user info at bottom
   - Main content area: fills remaining space
 
 Mobile layout:
   - No sidebar
-  - Bottom nav bar with four icons: Chat, Approvals (with badge), Preferences, Activity
+  - Bottom nav bar with the **same five** items as desktop (icons + labels as implemented)
   - Content fills full screen above the nav bar
 
-Nav items:
-  - Chat (home icon) -> /
-  - Approvals (checkmark icon) -> /approvals -- shows badge with pending count
-  - Preferences (sliders icon) -> /preferences
-  - Activity (clock icon) -> /activity
+Nav items (MVP):
+  - Chat -> `/`
+  - Approvals -> `/approvals` (pending badge)
+  - Integrations -> `/integrations`
+  - Activity -> `/activity`
+  - Account -> `/account`
 
 User info (shown in sidebar on desktop, accessible via avatar tap on mobile):
   - Contractor name
   - "Sign out" button that calls supabase.auth.signOut() and redirects to /login
 
-Create src/components/layout/ConnectionBanner.tsx:
+Create `components/kayzo/connection-banner.tsx` (or equivalent):
   - Shows at the top of the content area only when connectionStatus is reconnecting or failed
   - "Reconnecting to Kayzo..." with spinner when reconnecting
   - "Unable to connect" with retry button when failed
@@ -511,72 +429,49 @@ DEPLOYMENT:
 2. Set environment variables in Vercel dashboard:
    NEXT_PUBLIC_SUPABASE_URL=
    NEXT_PUBLIC_SUPABASE_ANON_KEY=
-   NEXT_PUBLIC_GATEWAY_WS_URL=wss://api.kayzo.ai
-   NEXT_PUBLIC_GATEWAY_API_URL=https://api.kayzo.ai
-3. Set custom domain: app.kayzo.ai (CNAME to cname.vercel-dns.com)
-4. Add app.kayzo.ai to Supabase allowed redirect URLs in Auth settings
+   NEXT_PUBLIC_GATEWAY_URL=wss://api.kayzo.app
+   NEXT_PUBLIC_API_URL=https://api.kayzo.app
+3. Set custom domain: **app.kayzo.app** (CNAME from Vercel project settings)
+4. Add **app.kayzo.app** (and preview URLs if needed) to Supabase Auth redirect allow-list
 5. Deploy and confirm the build succeeds
 
 END TO END TEST (requires a provisioned test customer on the backend):
 
 AUTH:
-[ ] Navigate to https://app.kayzo.ai -- confirm redirect to login
-[ ] Sign in with test customer credentials -- confirm redirect to chat
-[ ] Refresh the page -- confirm still logged in (session persists)
+[ ] Navigate to **https://app.kayzo.app** — confirm redirect to login when logged out
+[ ] Sign in with test customer credentials — confirm redirect to chat (or /setup-pending for local-without-URL)
+[ ] Refresh the page — confirm still logged in (session persists)
 
 CONNECTION (CLOUD CUSTOMER):
-[ ] Chat screen shows green "Connected" indicator
-[ ] Browser dev tools Network tab shows WebSocket connection to wss://api.kayzo.ai/ws/testuser
-[ ] Disconnect network, confirm "Reconnecting..." banner appears
-[ ] Reconnect network, confirm reconnection and banner disappears
+[ ] Chat screen shows connected state (banner or subtle indicator per implementation)
+[ ] Browser dev tools Network tab shows WebSocket to **wss://api.kayzo.app/ws/{slug}** (with JWT / subprotocol as implemented)
+[ ] Disconnect network — confirm reconnecting / failed UI appears as designed
+[ ] Reconnect — confirm recovery
 
 CONNECTION (LOCAL CUSTOMER - SETUP PENDING):
 [ ] Log in as a local customer with gateway_url = null
-[ ] Confirm redirect to /setup-pending page (not the chat screen)
-[ ] Confirm "Check again" button is present
-[ ] Set gateway_url in Supabase to a test value
-[ ] Tap "Check again" -- confirm redirect to the chat screen
-[ ] Confirm the WebSocket connects to the gateway_url value, not api.kayzo.ai
+[ ] Confirm redirect to /setup-pending (not chat)
+[ ] "Check again" re-fetches customer; after gateway_url is set, confirm redirect to chat
+[ ] Confirm WS targets **gateway_url**, not the cloud router
 
 CHAT:
-[ ] Send a text message -- confirm it appears right-aligned immediately (optimistic)
-[ ] Confirm Kayzo response streams in character by character
-[ ] Send: "I need a bid for a 2400 sq ft house, standard framing and drywall" -- confirm construction-aware response
+[ ] Send a text message — optimistic user bubble + assistant reply
+[ ] Exercise pricing / bid / invoice flows as implemented (tool cards, PDF, send if Gmail connected)
 
 APPROVALS:
-[ ] Trigger an approval by asking Kayzo to place an order above the threshold
-[ ] Confirm approval card appears inline in chat with correct category badge
-[ ] Confirm approval count badge appears on the nav
-[ ] Navigate to /approvals -- confirm item is in the queue
-[ ] Approve the item -- confirm status updates in both chat and queue
-[ ] Confirm "Change how I handle these" link opens preferences drawer to ordering section
+[ ] Trigger or simulate an approval — card in chat + queue at `/approvals`
+[ ] Approve / decline — state updates; **no** link to a preferences screen (review-first only)
 
-PREFERENCES:
-[ ] Navigate to /preferences -- confirm current preferences load correctly
-[ ] Change ordering mode to threshold with $300 limit
-[ ] Confirm PATCH request fires and "Saved" toast appears
-[ ] Wait 60 seconds, confirm backend refreshed preferences (check preferences-context.md on VPS)
+REVIEW-FIRST (SERVER PREFS):
+[ ] After login, confirm dashboard load does **not** require any `/preferences` page
+[ ] Optional: in Network tab, confirm **PATCH** `https://api.kayzo.app/api/preferences/{slug}` may run once with `always_ask` modes (idempotent)
 
-BID GENERATION:
-[ ] Send: "Generate a bid for replacing the roof on a 1500 sq ft house, standard shingles"
-[ ] Confirm bid card renders with line items and total
-[ ] Tap a line item -- confirm it becomes editable inline
-[ ] Change a quantity -- confirm totals update in real time
-[ ] Download PDF -- confirm PDF generates and downloads
-[ ] Copy as text -- confirm clipboard receives formatted bid text
-
-ONBOARDING (requires clearing localStorage):
-[ ] Open app in incognito / clear localStorage
-[ ] Log in -- confirm onboarding modal appears
-[ ] Complete all four screens
-[ ] Confirm preferences PATCH fires with chosen values
-[ ] Confirm modal closes and chat screen shows
+BID / INVOICE / EMAIL:
+[ ] Bid card: inline edit, copy, PDF; **Send** uses router Gmail route when integrated
 
 MOBILE:
-[ ] Open app on a real phone
-[ ] Confirm bottom nav bar shows (no sidebar on mobile)
-[ ] Open keyboard -- confirm input bar stays visible above keyboard
-[ ] Take a photo with the attachment button -- confirm it sends to the gateway
+[ ] Bottom nav shows five items (Chat, Approvals, Integrations, Activity, Account)
+[ ] Keyboard / viewport behavior acceptable on a real device
 
 Report each checkbox result. Fix all failures.
 
@@ -584,7 +479,7 @@ Report each checkbox result. Fix all failures.
 
 ## Notes on using these prompts
 
-This is a separate project from the backend. Create a new directory and new Git repo for the web app.
+This is a separate project from the backend (GitHub: **kayzo-webapp** / local **`builderclaw-app`**). For greenfield, create a new directory and repo; for this monorepo, work inside the existing app folder.
 
 The backend must be running with the gateway router working before building the web app past Prompt 2. The WebSocket connection (Prompt 3) is the core dependency -- get it working before building any UI on top of it.
 
