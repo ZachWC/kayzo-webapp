@@ -228,11 +228,6 @@ function CredentialCard({
   const [error, setError] = useState<string | null>(null)
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Sync account number if parent refreshes
-  useEffect(() => {
-    setAccount(accountNumber ?? "")
-  }, [accountNumber])
-
   const handleSave = useCallback(async () => {
     setSaving(true)
     setError(null)
@@ -345,10 +340,6 @@ export function IntegrationsScreen() {
     })
   }, [])
 
-  useEffect(() => {
-    // no-op: reserved for future integration diagnostics
-  }, [slug, apiBase])
-
   const fetchIntegrations = useCallback(async () => {
     if (!slug || !authToken) return
     try {
@@ -373,14 +364,18 @@ export function IntegrationsScreen() {
   }, [slug, authToken, apiBase])
 
   useEffect(() => {
-    fetchIntegrations()
+    queueMicrotask(() => {
+      void fetchIntegrations()
+    })
   }, [fetchIntegrations])
 
   // Handle OAuth callback redirects (e.g. ?gmail=connected)
   useEffect(() => {
     const gmailParam = searchParams.get("gmail")
     if (gmailParam === "connected") {
-      fetchIntegrations()
+      queueMicrotask(() => {
+        void fetchIntegrations()
+      })
       // Clean the URL
       router.replace("/integrations")
     }
@@ -465,6 +460,7 @@ export function IntegrationsScreen() {
         />
 
         <CredentialCard
+          key={`lowes-${d.lowes.accountNumber ?? ""}-${d.lowes.configured}-${d.updatedAt ?? ""}`}
           icon={Package}
           name="Lowe's Pro"
           description="Check lumber, hardware, and supply prices from your Lowe's Pro account"
@@ -477,6 +473,7 @@ export function IntegrationsScreen() {
         />
 
         <CredentialCard
+          key={`homedepot-${d.homedepot.accountNumber ?? ""}-${d.homedepot.configured}-${d.updatedAt ?? ""}`}
           icon={ShoppingCart}
           name="Home Depot Pro"
           description="Check lumber, hardware, and supply prices from your Home Depot Pro Xtra account"

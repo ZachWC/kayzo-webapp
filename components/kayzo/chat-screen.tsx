@@ -112,82 +112,81 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
   }
 
   if (msg.type === "bid") {
+    let bid: {
+      jobName: string
+      date: string
+      lineItems: BidLineItem[]
+      markup?: number
+    }
     try {
-      const bid = JSON.parse(msg.content) as {
-        jobName: string
-        date: string
-        lineItems: BidLineItem[]
-        markup?: number
-      }
-      return (
-        <div className="flex items-start gap-2">
-          <KayzoAvatar />
-          <div className="flex-1 min-w-0">
-            <BidCard
-              jobName={bid.jobName}
-              date={bid.date}
-              lineItems={adaptLineItems(bid.lineItems)}
-              markup={bid.markup}
-              customerSlug={customerSlug}
-            />
-            <p className="text-[10px] text-muted-foreground mt-1 ml-1">
-              {msg.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-            </p>
-          </div>
-        </div>
-      )
+      bid = JSON.parse(msg.content) as typeof bid
     } catch {
       return null
     }
+    return (
+      <div className="flex items-start gap-2">
+        <KayzoAvatar />
+        <div className="flex-1 min-w-0">
+          <BidCard
+            jobName={bid.jobName}
+            date={bid.date}
+            lineItems={adaptLineItems(bid.lineItems)}
+            markup={bid.markup}
+            customerSlug={customerSlug}
+          />
+          <p className="text-[10px] text-muted-foreground mt-1 ml-1">
+            {msg.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </p>
+        </div>
+      </div>
+    )
   }
 
   if (msg.type === "invoice") {
+    let inv: { jobName: string; date: string; lineItems: BidLineItem[] }
     try {
-      const inv = JSON.parse(msg.content) as {
-        jobName: string
-        date: string
-        lineItems: BidLineItem[]
-      }
-      const lineItems = inv.lineItems.map((i) => ({
-        id: i.id,
-        description: i.description,
-        qty: i.quantity,
-        unit: i.unit,
-        unitPrice: i.unitPrice,
-      }))
-      return (
-        <div className="flex items-start gap-2">
-          <KayzoAvatar />
-          <div className="flex-1 min-w-0">
-            <InvoiceCard jobName={inv.jobName} date={inv.date} lineItems={lineItems} customerSlug={customerSlug} />
-            <p className="text-[10px] text-muted-foreground mt-1 ml-1">
-              {msg.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-            </p>
-          </div>
-        </div>
-      )
+      inv = JSON.parse(msg.content) as typeof inv
     } catch {
       return null
     }
+    const lineItems = inv.lineItems.map((i) => ({
+      id: i.id,
+      description: i.description,
+      qty: i.quantity,
+      unit: i.unit,
+      unitPrice: i.unitPrice,
+    }))
+    return (
+      <div className="flex items-start gap-2">
+        <KayzoAvatar />
+        <div className="flex-1 min-w-0">
+          <InvoiceCard jobName={inv.jobName} date={inv.date} lineItems={lineItems} customerSlug={customerSlug} />
+          <p className="text-[10px] text-muted-foreground mt-1 ml-1">
+            {msg.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </p>
+        </div>
+      </div>
+    )
   }
 
   if (msg.type === "pricing") {
+    let data: PricingChatPayload
     try {
-      const data = JSON.parse(msg.content) as PricingChatPayload
-      return (
-        <div className="flex items-start gap-2">
-          <KayzoAvatar />
-          <div className="flex-1 min-w-0">
-            <PricingCard data={data} />
-            <p className="text-[10px] text-muted-foreground mt-1 ml-1">
-              {msg.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-            </p>
-          </div>
-        </div>
-      )
+      data = JSON.parse(msg.content) as PricingChatPayload
     } catch {
       return null
     }
+    return (
+      <div className="flex items-start gap-2">
+        <KayzoAvatar />
+        <div className="flex-1 min-w-0">
+          <PricingCard data={data} />
+          <p className="text-[10px] text-muted-foreground mt-1 ml-1">
+            {msg.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          </p>
+        </div>
+      </div>
+    )
   }
 
   if (msg.role === "user") {
