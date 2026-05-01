@@ -10,14 +10,6 @@ export interface Customer {
   gatewayUrl: string | null
 }
 
-export interface Preferences {
-  ordering: { mode: "always_ask" | "threshold" | "always_act"; threshold: number | null }
-  scheduling: { mode: "always_ask" | "always_act" }
-  emailReplies: { mode: "always_ask" | "always_act" }
-  flagging: { mode: "always_act" }
-  bidMarkup: number
-}
-
 export type MessageRole = "user" | "assistant" | "system"
 export type MessageType = "text" | "approval" | "bid" | "invoice" | "pricing" | "thinking"
 

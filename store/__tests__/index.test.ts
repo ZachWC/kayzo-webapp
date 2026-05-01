@@ -126,7 +126,7 @@ describe("reset", () => {
     expect(useAppStore.getState().connectionStatus).toBe("connecting")
   })
 
-  it("clears customer and preferences", () => {
+  it("clears customer", () => {
     useAppStore.getState().setCustomer({
       id: "1",
       email: "test@example.com",
@@ -140,7 +140,6 @@ describe("reset", () => {
     })
     useAppStore.getState().reset()
     expect(useAppStore.getState().customer).toBeNull()
-    expect(useAppStore.getState().preferences).toBeNull()
   })
 })
 

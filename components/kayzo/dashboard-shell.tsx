@@ -31,8 +31,8 @@ export function DashboardShell({ children, contractorName, customerSlug }: Dashb
     setCustomer({ id: "", email: "", name: contractorName, slug: customerSlug, subscriptionStatus: "active", subscriptionTier: "cloud", freeAccount: false, gatewayType: "cloud", gatewayUrl: null })
   }, [customerSlug, contractorName, setCustomer])
 
-  // Policy: run review-first (always ask) by default.
-  // This removes preference intake UI while still ensuring the gateway never auto-sends.
+  // Product policy: review-first only — no autonomy UI. Sync contractor_preferences on load
+  // so gateway + plugins never auto-order, auto-schedule, or auto-reply without approval.
   useEffect(() => {
     if (!customerSlug) return
     const apiBase =
@@ -53,10 +53,11 @@ export function DashboardShell({ children, contractorName, customerSlug }: Dashb
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            ordering: { mode: "always_ask", threshold: null },
-            scheduling: { mode: "always_ask" },
-            emailReplies: { mode: "always_ask" },
-            bidMarkup: 20,
+            ordering_mode: "always_ask",
+            scheduling_mode: "always_ask",
+            email_replies_mode: "always_ask",
+            flagging_mode: "always_act",
+            bid_markup: 20,
           }),
         }).catch(() => {})
       })

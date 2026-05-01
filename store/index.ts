@@ -1,12 +1,6 @@
 import { create } from "zustand"
 import { persist, createJSONStorage } from "zustand/middleware"
-import type {
-  ChatMessage,
-  ApprovalItem,
-  Preferences,
-  ConnectionStatus,
-  Customer,
-} from "@/lib/types"
+import type { ChatMessage, ApprovalItem, ConnectionStatus, Customer } from "@/lib/types"
 
 const SIXTY_DAYS_MS = 60 * 24 * 60 * 60 * 1000
 
@@ -14,7 +8,6 @@ interface AppState {
   // Data
   messages: ChatMessage[]
   approvals: ApprovalItem[]
-  preferences: Preferences | null
   customer: Customer | null
 
   // Connection
@@ -27,7 +20,6 @@ interface AppState {
   setMessages: (messages: ChatMessage[]) => void
   addApproval: (approval: ApprovalItem) => void
   updateApproval: (id: string, updates: Partial<ApprovalItem>) => void
-  setPreferences: (preferences: Preferences) => void
   setConnectionStatus: (status: ConnectionStatus) => void
   setCustomer: (customer: Customer | null) => void
   reset: () => void
@@ -36,7 +28,6 @@ interface AppState {
 const initialState = {
   messages: [],
   approvals: [],
-  preferences: null,
   customer: null,
   connectionStatus: "connecting" as ConnectionStatus,
 }
@@ -68,8 +59,6 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           approvals: state.approvals.map((a) => (a.id === id ? { ...a, ...updates } : a)),
         })),
-
-      setPreferences: (preferences) => set({ preferences }),
 
       setConnectionStatus: (connectionStatus) => set({ connectionStatus }),
 
