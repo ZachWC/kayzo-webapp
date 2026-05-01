@@ -1,10 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { Pencil, Clipboard, Download, Plus, Save, Check } from "lucide-react"
+import { Pencil, Clipboard, Download, Plus, Save, Check, Mail } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { cn } from "@/lib/utils"
+import { buildBidPdfBlob, blobToBase64 } from "@/lib/kayzo/pdf-export"
+import { SendEmailModal } from "./send-email-modal"
+import { useAppStore } from "@/store"
 
 export interface BidLineItem {
   id: string
@@ -19,6 +21,7 @@ interface BidCardProps {
   date: string
   lineItems: BidLineItem[]
   markup?: number
+  customerSlug: string
 }
 
 function calcTotal(items: BidLineItem[]) {
@@ -30,11 +33,14 @@ export function BidCard({
   date,
   lineItems: initialItems,
   markup = 15,
+  customerSlug,
 }: BidCardProps) {
+  const { addMessage } = useAppStore()
   const [items, setItems] = useState<BidLineItem[]>(initialItems)
   const [markupPct, setMarkupPct] = useState(markup)
   const [isEditing, setIsEditing] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [emailOpen, setEmailOpen] = useState(false)
 
   const subtotal = calcTotal(items)
   const markupAmount = subtotal * (markupPct / 100)
@@ -83,61 +89,32 @@ export function BidCard({
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const toPdfLineItems = () =>
+    items.map((i) => ({
+      id: i.id,
+      description: i.description,
+      qty: i.qty,
+      unit: i.unit,
+      unitPrice: i.unitPrice,
+    }))
+
   const handleDownloadPdf = async () => {
-    const { jsPDF } = await import("jspdf")
-    const doc = new jsPDF()
-    let y = 20
-
-    doc.setFontSize(16)
-    doc.setFont("helvetica", "bold")
-    doc.text(jobName, 14, y)
-    y += 8
-
-    doc.setFontSize(10)
-    doc.setFont("helvetica", "normal")
-    doc.text(date, 14, y)
-    y += 12
-
-    // Headers
-    doc.setFont("helvetica", "bold")
-    doc.text("Description", 14, y)
-    doc.text("Qty", 110, y, { align: "right" })
-    doc.text("Unit", 125, y)
-    doc.text("Unit Price", 165, y, { align: "right" })
-    doc.text("Total", 196, y, { align: "right" })
-    y += 2
-    doc.line(14, y, 196, y)
-    y += 6
-
-    doc.setFont("helvetica", "normal")
-    items.forEach((item) => {
-      doc.text(item.description.slice(0, 42), 14, y)
-      doc.text(String(item.qty), 110, y, { align: "right" })
-      doc.text(item.unit, 125, y)
-      doc.text(`$${item.unitPrice.toFixed(2)}`, 165, y, { align: "right" })
-      doc.text(`$${(item.qty * item.unitPrice).toFixed(2)}`, 196, y, { align: "right" })
-      y += 7
+    const blob = await buildBidPdfBlob({
+      jobName,
+      date,
+      lineItems: toPdfLineItems(),
+      markupPct,
     })
-
-    y += 3
-    doc.line(14, y, 196, y)
-    y += 7
-    doc.text("Subtotal", 140, y)
-    doc.text(`$${subtotal.toFixed(2)}`, 196, y, { align: "right" })
-    y += 7
-    doc.text(`Markup (${markupPct}%)`, 140, y)
-    doc.text(`$${markupAmount.toFixed(2)}`, 196, y, { align: "right" })
-    y += 2
-    doc.line(140, y, 196, y)
-    y += 7
-    doc.setFont("helvetica", "bold")
-    doc.text("Grand Total", 140, y)
-    doc.text(`$${grandTotal.toFixed(2)}`, 196, y, { align: "right" })
-
-    doc.save(`${jobName.replace(/\s+/g, "-")}-bid.pdf`)
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `${jobName.replace(/\s+/g, "-")}-bid.pdf`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   return (
+    <>
     <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
       {/* Header */}
       <div className="flex items-start justify-between gap-3 p-4 border-b border-border">
@@ -145,7 +122,7 @@ export function BidCard({
           <h3 className="font-bold text-foreground text-base leading-tight">{jobName}</h3>
           <p className="text-sm text-muted-foreground mt-0.5">{date}</p>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
           <Button
             size="sm"
             variant="outline"
@@ -164,9 +141,13 @@ export function BidCard({
             {copied ? <Check className="w-3.5 h-3.5 text-primary" /> : <Clipboard className="w-3.5 h-3.5" />}
             {copied ? "Copied" : "Copy"}
           </Button>
-          <Button size="sm" variant="outline" className="h-8 px-2.5 gap-1.5 text-xs" onClick={handleDownloadPdf}>
+          <Button size="sm" variant="outline" className="h-8 px-2.5 gap-1.5 text-xs" onClick={() => void handleDownloadPdf()}>
             <Download className="w-3.5 h-3.5" />
             PDF
+          </Button>
+          <Button size="sm" className="h-8 px-2.5 gap-1.5 text-xs" onClick={() => setEmailOpen(true)}>
+            <Mail className="w-3.5 h-3.5" />
+            Send
           </Button>
         </div>
       </div>
@@ -306,5 +287,32 @@ export function BidCard({
         </div>
       </div>
     </div>
+    <SendEmailModal
+      open={emailOpen}
+      onOpenChange={setEmailOpen}
+      customerSlug={customerSlug}
+      defaultSubject={`Bid: ${jobName}`}
+      defaultBody={`Please find the bid attached for ${jobName}.\n\nThank you.`}
+      buildAttachment={async () => {
+        const blob = await buildBidPdfBlob({
+          jobName,
+          date,
+          lineItems: toPdfLineItems(),
+          markupPct,
+        })
+        const base64 = await blobToBase64(blob)
+        return { filename: `${jobName.replace(/\s+/g, "-")}-bid.pdf`, base64 }
+      }}
+      onSent={(to) => {
+        addMessage({
+          id: crypto.randomUUID(),
+          role: "system",
+          content: `Email sent to ${to}.`,
+          timestamp: new Date(),
+          type: "text",
+        })
+      }}
+    />
+    </>
   )
 }
