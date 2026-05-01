@@ -38,6 +38,21 @@ const categoryLabelMap: Record<ApprovalCategory, string> = {
 type CategoryFilter = "All" | ApprovalCategory
 const CATEGORY_OPTIONS: CategoryFilter[] = ["All", "ordering", "scheduling", "email_replies", "flagging"]
 
+type DatePreset = "7d" | "30d" | "all"
+const DATE_PRESET_OPTIONS: { value: DatePreset; label: string }[] = [
+  { value: "7d", label: "Last 7 days" },
+  { value: "30d", label: "Last 30 days" },
+  { value: "all", label: "All time" },
+]
+
+function passesDatePreset(timestamp: string, preset: DatePreset): boolean {
+  if (preset === "all") return true
+  const t = Date.parse(timestamp)
+  if (!Number.isFinite(t)) return true
+  const windowMs = preset === "7d" ? 7 * 86_400_000 : 30 * 86_400_000
+  return Date.now() - t <= windowMs
+}
+
 export function ActivityScreen() {
   const { customer } = useAppStore()
   const apiBase =
@@ -50,6 +65,7 @@ export function ActivityScreen() {
   const [isLoading, setIsLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("All")
+  const [datePreset, setDatePreset] = useState<DatePreset>("30d")
 
   useEffect(() => {
     if (!slug) return
@@ -60,9 +76,11 @@ export function ActivityScreen() {
       .finally(() => setIsLoading(false))
   }, [slug, apiBase])
 
-  const filtered = items.filter((item) =>
-    categoryFilter === "All" ? true : item.category === categoryFilter
-  )
+  const filtered = items.filter((item) => {
+    const catOk = categoryFilter === "All" ? true : item.category === categoryFilter
+    const dateOk = passesDatePreset(item.timestamp, datePreset)
+    return catOk && dateOk
+  })
 
   const toggle = (id: string) => setExpandedId((prev) => (prev === id ? null : id))
 
@@ -71,8 +89,23 @@ export function ActivityScreen() {
       {/* Header */}
       <div className="shrink-0 px-4 pt-5 pb-3 border-b border-border bg-background">
         <h2 className="text-xl font-bold text-foreground mb-4">Activity</h2>
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="relative flex-1 min-w-0">
+            <select
+              value={datePreset}
+              onChange={(e) => setDatePreset(e.target.value as DatePreset)}
+              className="w-full appearance-none bg-muted text-foreground text-sm font-medium rounded-lg px-3 py-2 pr-8 outline-none cursor-pointer border border-border"
+              aria-label="Filter by date range"
+            >
+              {DATE_PRESET_OPTIONS.map(({ value, label }) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          </div>
+          <div className="relative flex-1 min-w-0">
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value as CategoryFilter)}
@@ -81,7 +114,7 @@ export function ActivityScreen() {
             >
               {CATEGORY_OPTIONS.map((opt) => (
                 <option key={opt} value={opt}>
-                  {opt === "All" ? "All" : categoryLabelMap[opt as ApprovalCategory]}
+                  {opt === "All" ? "All categories" : categoryLabelMap[opt as ApprovalCategory]}
                 </option>
               ))}
             </select>
