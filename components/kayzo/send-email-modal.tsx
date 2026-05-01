@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,8 +19,9 @@ export type SendEmailModalProps = {
   onSent?: (to: string) => void
 }
 
-export function SendEmailModal({
-  open,
+type InnerProps = Omit<SendEmailModalProps, "open">
+
+function SendEmailModalInner({
   onOpenChange,
   customerSlug,
   defaultTo = "",
@@ -28,26 +29,13 @@ export function SendEmailModal({
   defaultBody,
   buildAttachment,
   onSent,
-}: SendEmailModalProps) {
+}: InnerProps) {
   const [to, setTo] = useState(defaultTo)
   const [cc, setCc] = useState("")
   const [subject, setSubject] = useState(defaultSubject)
   const [body, setBody] = useState(defaultBody)
   const [error, setError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
-
-  useEffect(() => {
-    if (open) {
-      setTo(defaultTo)
-      setCc("")
-      setSubject(defaultSubject)
-      setBody(defaultBody)
-      setError(null)
-      setSending(false)
-    }
-  }, [open, defaultTo, defaultSubject, defaultBody])
-
-  if (!open) return null
 
   const apiBase =
     process.env.NEXT_PUBLIC_GATEWAY_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "https://api.kayzo.app"
@@ -103,7 +91,7 @@ export function SendEmailModal({
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/50">
       <div
         className={cn(
-          "bg-card border border-border rounded-xl shadow-lg w-full max-w-lg max-h-[90dvh] overflow-hidden flex flex-col"
+          "bg-card border border-border rounded-xl shadow-lg w-full max-w-lg max-h-[90dvh] overflow-hidden flex flex-col",
         )}
         role="dialog"
         aria-modal="true"
@@ -155,5 +143,20 @@ export function SendEmailModal({
         </div>
       </div>
     </div>
+  )
+}
+
+/** Remount inner form when opened or defaults change — avoids reset-in-effect. */
+export function SendEmailModal({ open, defaultTo = "", defaultSubject, defaultBody, ...rest }: SendEmailModalProps) {
+  if (!open) return null
+  const formKey = `${defaultTo}|${defaultSubject}|${defaultBody}`
+  return (
+    <SendEmailModalInner
+      key={formKey}
+      defaultTo={defaultTo}
+      defaultSubject={defaultSubject}
+      defaultBody={defaultBody}
+      {...rest}
+    />
   )
 }
