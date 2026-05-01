@@ -105,6 +105,7 @@ export class GatewayConnection {
             },
             role: "operator",
             scopes: ["operator.read", "operator.write"],
+            caps: ["tool-events"],
           },
         }),
       )
