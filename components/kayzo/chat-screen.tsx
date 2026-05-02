@@ -279,7 +279,12 @@ export function ChatScreen() {
     const reader = new FileReader()
     reader.onload = () => {
       const base64 = (reader.result as string).split(",")[1]
-      send("agent", { message: input.trim() || "Here is a photo.", image: base64, mimeType: file.type, agentId: "main", idempotencyKey: crypto.randomUUID() })
+      send("agent", {
+        message: input.trim() || "Here is a photo.",
+        attachments: [{ type: "image", mimeType: file.type, fileName: file.name, content: base64 }],
+        agentId: "main",
+        idempotencyKey: crypto.randomUUID(),
+      })
       const userMsg: ChatMessage = {
         id: crypto.randomUUID(),
         role: "user",

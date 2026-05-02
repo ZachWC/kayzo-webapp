@@ -25,6 +25,26 @@ export function useGateway() {
 
   const handleEvent = useCallback(
     (event: GatewayEvent) => {
+      if (event.type === "res" && event.ok === false) {
+        const err = event.error
+        let msg = "Kayzo could not complete that request."
+        if (typeof err === "string") msg = err
+        else if (err && typeof err === "object" && "message" in err) {
+          const m = (err as { message?: unknown }).message
+          if (typeof m === "string") msg = m
+        }
+        streamingIdRef.current = null
+        removeThinkingMessages()
+        addMessage({
+          id: crypto.randomUUID(),
+          role: "system",
+          content: msg,
+          timestamp: new Date(),
+          type: "text",
+        })
+        return
+      }
+
       if (event.type !== "event" || event.event !== "agent") return
 
       const payload = event.payload as Record<string, unknown>
@@ -81,29 +101,38 @@ export function useGateway() {
       }
 
       if (stream === "assistant") {
-        const delta =
-          (typeof data.delta === "string" ? data.delta : null) ??
-          (typeof data.text === "string" ? data.text : null) ??
-          ""
-        if (!delta) return
+        // OpenClaw often sends replace:true with delta:"" and the full partial in text — using ??
+        // on strings breaks because "" is not nullish, so we never read text.
+        const replace = data.replace === true
+        const deltaRaw = typeof data.delta === "string" ? data.delta : ""
+        const textRaw = typeof data.text === "string" ? data.text : ""
 
-        if (streamingIdRef.current) {
-          updateMessage(streamingIdRef.current, {
-            content:
-              (useAppStore.getState().messages.find((m) => m.id === streamingIdRef.current)?.content ?? "") +
-              delta,
-          })
-        } else {
-          const id = crypto.randomUUID()
-          streamingIdRef.current = id
-          const msg: ChatMessage = {
-            id,
-            role: "assistant",
-            content: delta,
-            timestamp: new Date(),
-            type: "text",
+        const applyAssistantChunk = (chunk: string, absolute: boolean) => {
+          if (streamingIdRef.current) {
+            const prev = useAppStore.getState().messages.find((m) => m.id === streamingIdRef.current)?.content ?? ""
+            updateMessage(streamingIdRef.current, {
+              content: absolute ? chunk : prev + chunk,
+            })
+          } else {
+            const id = crypto.randomUUID()
+            streamingIdRef.current = id
+            addMessage({
+              id,
+              role: "assistant",
+              content: chunk,
+              timestamp: new Date(),
+              type: "text",
+            })
           }
-          addMessage(msg)
+        }
+
+        if (replace) {
+          if (!textRaw) return
+          applyAssistantChunk(textRaw, true)
+        } else if (deltaRaw.length > 0) {
+          applyAssistantChunk(deltaRaw, false)
+        } else {
+          return
         }
       }
 
