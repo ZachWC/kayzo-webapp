@@ -18,6 +18,7 @@ type LocalBidLineItem = {
   qty: number
   unit: string
   unitPrice: number
+  sourceUrl?: string
 }
 
 function adaptLineItems(items: BidLineItem[]): LocalBidLineItem[] {
@@ -27,6 +28,7 @@ function adaptLineItems(items: BidLineItem[]): LocalBidLineItem[] {
     qty: i.quantity,
     unit: i.unit,
     unitPrice: i.unitPrice,
+    sourceUrl: i.sourceUrl,
   }))
 }
 
@@ -240,7 +242,12 @@ export function ChatScreen() {
 
   const sendMessage = () => {
     const text = input.trim()
-    if (!text || connectionStatus !== "connected") return
+    if (!text || connectionStatus !== "connected") {
+      // #region agent log
+      console.log("[gw:H5] chat-screen.tsx:sendMessage — send_blocked", { hasText: Boolean(text), connectionStatus })
+      // #endregion
+      return
+    }
 
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),

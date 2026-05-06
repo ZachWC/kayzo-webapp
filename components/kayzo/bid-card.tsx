@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Pencil, Clipboard, Download, Plus, Save, Check, Mail } from "lucide-react"
+import { Pencil, Clipboard, Download, Plus, Save, Check, Mail, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { buildBidPdfBlob, blobToBase64 } from "@/lib/kayzo/pdf-export"
@@ -14,6 +14,7 @@ export interface BidLineItem {
   qty: number
   unit: string
   unitPrice: number
+  sourceUrl?: string
 }
 
 interface BidCardProps {
@@ -185,7 +186,20 @@ export function BidCard({
                       className="h-7 text-sm border-muted"
                     />
                   ) : (
-                    <span className="text-foreground">{item.description}</span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="text-foreground">{item.description}</span>
+                      {item.sourceUrl && (
+                        <a
+                          href={item.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-muted-foreground hover:text-primary transition-colors shrink-0"
+                          title="View product"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+                    </span>
                   )}
                 </td>
                 <td className="px-3 py-2.5 text-right">
