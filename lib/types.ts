@@ -54,6 +54,7 @@ export interface BidLineItem {
   quantity: number
   unit: string
   unitPrice: number
+  sourceUrl?: string
 }
 
 export interface Bid {
